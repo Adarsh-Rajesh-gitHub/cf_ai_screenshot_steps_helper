@@ -42,6 +42,23 @@ export default function Chat() {
   const [textareaHeight, setTextareaHeight] = useState("auto");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Stable agent/session name for this browser. This MUST match the key used by the backend
+  // (server.ts uses `this.name` as the session key, and /capture expects `agent_name`).
+  const [agentName] = useState(() => {
+    const key = "agents-starter:agentName";
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+
+    const created =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `sid_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    localStorage.setItem(key, created);
+    return created;
+  });
+
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -71,8 +88,11 @@ export default function Chat() {
   };
 
   const agent = useAgent({
-    agent: "chat"
-  });
+    agent: "chat",
+    // NOTE: types for useAgent may not include `name`, but the runtime supports named DO instances.
+    // We cast to `any` to ensure the correct instance is used.
+    name: agentName
+  } as any);
 
   const [agentInput, setAgentInput] = useState("");
   // B1 Capture state (no AI call yet)
@@ -81,11 +101,170 @@ export default function Chat() {
   const [captureResp, setCaptureResp] = useState<any>(null);
   const [captureErr, setCaptureErr] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [sessionResp, setSessionResp] = useState<any>(null);
+  const [sessionErr, setSessionErr] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
+  const [showCaptureRaw, setShowCaptureRaw] = useState(false);
+
+  const {
+    messages: agentMessages,
+    addToolResult,
+    clearHistory,
+    status,
+    sendMessage,
+    stop
+  } = useAgentChat<unknown, UIMessage<{ createdAt: string }>>({
+    agent
+  });
+
+  async function fetchSessionForContext() {
+    try {
+      const r = await fetch(`/session?sid=${encodeURIComponent(agentName)}`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "x-sid": agentName
+        }
+      });
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch {
+      return null;
+    }
+  }
+
+  function buildHiddenScreenshotContext(sessionPayload: any) {
+    const s = sessionPayload?.session ?? sessionPayload;
+    const brain = s?.last_result_json;
+    if (!brain) return null;
+
+    const lastGoal =
+      Array.isArray(s?.history) && s.history.length
+        ? s.history[s.history.length - 1]?.goal
+        : goal.trim();
+
+    const elements = Array.isArray(brain.ui_elements) ? brain.ui_elements : [];
+    const steps = Array.isArray(brain.steps) ? brain.steps : [];
+
+    const elementsBlock =
+      elements
+        .slice(0, 12)
+        .map((e: any) => {
+          const label = e?.label ?? "?";
+          const type = e?.type ?? "?";
+          const hint = e?.hint ? `: ${e.hint}` : "";
+          return `- ${label} [${type}]${hint}`;
+        })
+        .join("\n") || "(none)";
+
+    const stepsBlock =
+      steps
+        .slice(0, 8)
+        .map((x: string, i: number) => `${i + 1}. ${x}`)
+        .join("\n") || "(none)";
+
+    return (
+      `[[SCREENSHOT_CONTEXT]]\n` +
+      `Goal: ${lastGoal || "(unknown)"}\n` +
+      `Screen summary: ${brain.screen_summary || "(none)"}\n` +
+      `Confidence: ${brain.confidence ?? "(n/a)"}\n` +
+      `Need new screenshot: ${brain.need_new_screenshot ? "true" : "false"}\n` +
+      `Expected next screen: ${brain.expected_next_screen || "(unknown)"}\n` +
+      `UI elements:\n${elementsBlock}\n` +
+      `Steps:\n${stepsBlock}\n` +
+      `[[/SCREENSHOT_CONTEXT]]\n`
+    );
+  }
+
+  async function loadLatestSession() {
+    setSessionErr(null);
+    setSessionResp(null);
+    setSessionLoading(true);
+    try {
+      const r = await fetch(`/session?sid=${encodeURIComponent(agentName)}`, {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "x-sid": agentName
+        }
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error((data as any)?.error || `Session fetch failed (${r.status})`);
+      setSessionResp(data);
+    } catch (err: any) {
+      setSessionErr(err?.message || "Failed to load session.");
+    } finally {
+      setSessionLoading(false);
+    }
+  }
+
+  async function resetSession() {
+    setSessionErr(null);
+    setSessionResp(null);
+    setSessionLoading(true);
+    try {
+      const r = await fetch(`/session/reset?sid=${encodeURIComponent(agentName)}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "x-sid": agentName }
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok)
+        throw new Error((data as any)?.error || `Reset failed (${r.status})`);
+      // Reload so the UI can self-verify the cleared state.
+      await loadLatestSession();
+    } catch (err: any) {
+      setSessionErr(err?.message || "Failed to reset session.");
+    } finally {
+      setSessionLoading(false);
+    }
+  }
+
+  function buildScreenshotContext(goal: string, capture: any) {
+    const brain = capture?.brain;
+
+    // Prefer backend-provided compact summary if present
+    if (!brain) {
+      const fallbackSummary = capture?.brain_summary;
+      return [
+        "Screenshot analysis context (use this instead of the raw image):",
+        `Goal: ${goal}`,
+        `Summary: ${fallbackSummary ?? "(no analysis returned)"}`
+      ].join("\n");
+    }
+
+    const elements = Array.isArray(brain.ui_elements) ? brain.ui_elements : [];
+    const steps = Array.isArray(brain.steps) ? brain.steps : [];
+
+    const elementsLine =
+      elements
+        .slice(0, 10)
+        .map((e: any) => `${e?.label ?? "?"} (${e?.type ?? "?"})`)
+        .join(", ") || "(none)";
+
+    const stepsBlock =
+      steps
+        .slice(0, 8)
+        .map((s: string, i: number) => `${i + 1}. ${s}`)
+        .join("\n") || "(none)";
+
+    return [
+      "Screenshot analysis context (use this instead of the raw image):",
+      `Goal: ${goal}`,
+      `Screen summary: ${brain?.screen_summary ?? "(none)"}`,
+      `UI elements: ${elementsLine}`,
+      `Steps:\n${stepsBlock}`,
+      `Confidence: ${brain?.confidence ?? "(n/a)"}`
+    ].join("\n");
+  }
 
   async function handleCaptureSubmit(e: React.FormEvent) {
     e.preventDefault();
     setCaptureErr(null);
     setCaptureResp(null);
+    setSessionErr(null);
+    setSessionResp(null);
+    setShowCaptureRaw(false);
 
     if (!imageFile) {
       setCaptureErr("Missing image.");
@@ -108,11 +287,28 @@ export default function Chat() {
       const fd = new FormData();
       fd.append("goal", trimmed);
       fd.append("image", imageFile);
+      // Tie capture storage to the same durable session key used by the chat agent.
+      fd.append("agent_name", agentName);
 
-      const r = await fetch("/capture", { method: "POST", body: fd });
+      const r = await fetch("/capture", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+        headers: {
+          "x-sid": agentName
+        }
+      });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error((data as any)?.error || `Upload failed (${r.status})`);
       setCaptureResp(data);
+
+      // Authoritative session key is the agentName (must match the DO name).
+      // Server may also return a sid, but we always use agentName to avoid mismatches.
+      // UX: don't auto-send into chat. Prime the chat input so the next Send uses the stored screenshot context.
+      setAgentInput(trimmed);
+
+      // Try to load the server-stored session (if the backend exposes it)
+      loadLatestSession();
     } catch (err: any) {
       setCaptureErr(err?.message || "Upload failed.");
     } finally {
@@ -135,28 +331,34 @@ export default function Chat() {
     const message = agentInput;
     setAgentInput("");
 
-    // Send message to agent
+    // If a screenshot was captured, fetch the latest stored analysis and embed it invisibly
+    // in the user message so the model sees it but the UI does not render it.
+    let hiddenContext: string | null = null;
+    if (captureResp) {
+      const sessionPayload = await fetchSessionForContext();
+      hiddenContext = sessionPayload ? buildHiddenScreenshotContext(sessionPayload) : null;
+    }
+
+    const parts: any[] = [];
+    if (hiddenContext) parts.push({ type: "text", text: hiddenContext });
+    parts.push({ type: "text", text: message });
+
     await sendMessage(
       {
         role: "user",
-        parts: [{ type: "text", text: message }]
+        parts
       },
       {
-        body: extraData
+        body: {
+          ...extraData,
+          agent_name: agentName,
+          sid: agentName,
+          captureSid: agentName,
+          screenshot_context: Boolean(captureResp)
+        }
       }
     );
   };
-
-  const {
-    messages: agentMessages,
-    addToolResult,
-    clearHistory,
-    status,
-    sendMessage,
-    stop
-  } = useAgentChat<unknown, UIMessage<{ createdAt: string }>>({
-    agent
-  });
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -295,6 +497,7 @@ export default function Chat() {
                       <div>
                         {m.parts?.map((part, i) => {
                           if (part.type === "text") {
+                            if (part.text.startsWith("[[SCREENSHOT_CONTEXT]]")) return null;
                             return (
                               // biome-ignore lint/suspicious/noArrayIndexKey: immutable index
                               <div key={i}>
@@ -452,9 +655,73 @@ export default function Chat() {
             </div>
 
             {captureResp && (
-              <pre className="text-xs overflow-auto rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
-                {JSON.stringify(captureResp, null, 2)}
-              </pre>
+              <div className="mt-2">
+                <div className="text-xs text-neutral-600 dark:text-neutral-400">
+                  {captureResp.brain_summary
+                    ? `Summary: ${captureResp.brain_summary}`
+                    : "Capture succeeded."}
+                </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={loadLatestSession}
+                    disabled={sessionLoading}
+                    className="rounded-md border border-neutral-200 dark:border-neutral-800 px-2 py-1 text-xs"
+                  >
+                    {sessionLoading ? "Loading..." : "Load analysis"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetSession}
+                    disabled={sessionLoading}
+                    className="rounded-md border border-neutral-200 dark:border-neutral-800 px-2 py-1 text-xs"
+                  >
+                    Reset analysis
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCaptureRaw((v) => !v)}
+                    disabled={!showDebug}
+                    title={showDebug ? "Toggle raw capture response" : "Enable Debug to view raw JSON"}
+                    className={`rounded-md border border-neutral-200 dark:border-neutral-800 px-2 py-1 text-xs ${
+                      showDebug ? "" : "opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    {showCaptureRaw ? "Hide raw" : "Show raw"}
+                  </button>
+                </div>
+
+                {sessionErr && (
+                  <div className="mt-2 text-xs text-red-600">{sessionErr}</div>
+                )}
+
+                {sessionResp && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-neutral-600 dark:text-neutral-400">
+                      Analysis details
+                    </summary>
+                    <pre className="mt-2 text-xs overflow-auto rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
+                      {JSON.stringify(
+                        (sessionResp as any)?.session ?? sessionResp,
+                        null,
+                        2
+                      )}
+                    </pre>
+                  </details>
+                )}
+
+                {showDebug && showCaptureRaw && (
+                  <details className="mt-2" open>
+                    <summary className="cursor-pointer text-xs text-neutral-600 dark:text-neutral-400">
+                      Raw capture response
+                    </summary>
+                    <pre className="mt-2 text-xs overflow-auto rounded-md border border-neutral-200 dark:border-neutral-800 p-2">
+                      {JSON.stringify(captureResp, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
             )}
           </form>
         </div>

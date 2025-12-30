@@ -15,27 +15,23 @@
 		"remote": true
 	},
 	"vars": {
-    "VISION_MODEL_ID": "@cf/meta/llama-3.2-11b-vision-instruct"
+    "VISION_MODEL_ID": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "STRUCTURE_MODEL_ID": "@cf/meta/llama-3.1-8b-instruct"
+
   },
 	"assets": {
-		"directory": "public"
+		"directory": "dist"
 	},
 	"durable_objects": {
-		"bindings": [
-			{
-				"name": "Chat",
-				"class_name": "Chat"
-			}
-		]
+    "bindings": [
+      { "name": "Chat", "class_name": "Chat" },
+      { "name": "SESSION_MEMORY", "class_name": "SessionMemoryDO" }
+    ]
 	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": [
-				"Chat"
-			]
-		}
-	],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Chat"] },
+    { "tag": "v2", "new_classes": ["SessionMemoryDO"] }
+  ],
 	"observability": {
 		"enabled": true
 	}
