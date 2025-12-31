@@ -3,10 +3,11 @@
 **Live demo (no install needed):** https://agents-starter.adarshrajesh.workers.dev
 
 A tiny **“screenshot → goal → click-by-click steps”** helper. Upload a screenshot + a one-sentence goal, then chat to get concrete navigation steps based on the stored screenshot analysis.
+Usecases: Find where a setting/feature lives, Get click-by-click navigation for a goal, Identify key UI elements on the current screen, Compare what changed between screens, Complete common website tasks (update info, download, submit forms)
 
-## Try it (60 seconds)
+## Try it now
 1. Open the live demo link above.
-2. In **Goal**, type: `Check what Java problems I have solved`
+2. In Goal, type a one-sentence objective (at least 2 words), e.g. Check what Java problems I have solved.
 3. Upload a screenshot (PNG/JPG) of the page you’re on.
 4. Click **Send screenshot**, then ask in chat:
    - `What do you see on this screen?`
