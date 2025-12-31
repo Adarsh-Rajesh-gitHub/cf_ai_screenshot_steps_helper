@@ -1,30 +1,29 @@
 /** biome-ignore-all lint/correctness/useUniqueElementIds: it's alright */
-import { useEffect, useState, useRef, useCallback, use } from "react";
-import { useAgent } from "agents/react";
-import { isToolUIPart } from "ai";
-import { useAgentChat } from "agents/ai-react";
+
 import type { UIMessage } from "@ai-sdk/react";
-import type { tools } from "./tools";
-
-// Component imports
-import { Button } from "@/components/button/Button";
-import { Card } from "@/components/card/Card";
-import { Avatar } from "@/components/avatar/Avatar";
-import { Toggle } from "@/components/toggle/Toggle";
-import { Textarea } from "@/components/textarea/Textarea";
-import { MemoizedMarkdown } from "@/components/memoized-markdown";
-import { ToolInvocationCard } from "@/components/tool-invocation-card/ToolInvocationCard";
-
 // Icon imports
 import {
   Bug,
   Moon,
-  Robot,
-  Sun,
-  Trash,
   PaperPlaneTilt,
-  Stop
+  Robot,
+  Stop, 
+  Sun,
+  Trash
 } from "@phosphor-icons/react";
+import { useAgentChat } from "agents/ai-react";
+import { useAgent } from "agents/react";
+import { isToolUIPart } from "ai";
+import { use, useCallback, useEffect, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar/Avatar";
+// Component imports
+import { Button } from "@/components/button/Button";
+import { Card } from "@/components/card/Card";
+import { MemoizedMarkdown } from "@/components/memoized-markdown";
+import { Textarea } from "@/components/textarea/Textarea";
+import { Toggle } from "@/components/toggle/Toggle";
+import { ToolInvocationCard } from "@/components/tool-invocation-card/ToolInvocationCard";
+import type { tools } from "./tools";
 
 // List of tools that require human confirmation
 // NOTE: this should match tools that do NOT have execute functions in tools.ts.
@@ -56,7 +55,6 @@ export default function Chat() {
     localStorage.setItem(key, created);
     return created;
   });
-
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -188,7 +186,10 @@ export default function Chat() {
         }
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error((data as any)?.error || `Session fetch failed (${r.status})`);
+      if (!r.ok)
+        throw new Error(
+          (data as any)?.error || `Session fetch failed (${r.status})`
+        );
       setSessionResp(data);
     } catch (err: any) {
       setSessionErr(err?.message || "Failed to load session.");
@@ -202,11 +203,14 @@ export default function Chat() {
     setSessionResp(null);
     setSessionLoading(true);
     try {
-      const r = await fetch(`/session/reset?sid=${encodeURIComponent(agentName)}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "x-sid": agentName }
-      });
+      const r = await fetch(
+        `/session/reset?sid=${encodeURIComponent(agentName)}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "x-sid": agentName }
+        }
+      );
       const data = await r.json().catch(() => ({}));
       if (!r.ok)
         throw new Error((data as any)?.error || `Reset failed (${r.status})`);
@@ -298,7 +302,8 @@ export default function Chat() {
         }
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error((data as any)?.error || `Upload failed (${r.status})`);
+      if (!r.ok)
+        throw new Error((data as any)?.error || `Upload failed (${r.status})`);
       setCaptureResp(data);
 
       // Authoritative session key is the agentName (must match the DO name).
@@ -320,30 +325,30 @@ export default function Chat() {
     setAgentInput(e.target.value);
   };
 
-const handleAgentSubmit = async (
-  e: React.FormEvent,
-  extraData: Record<string, unknown> = {}
-) => {
-  e.preventDefault();
-  if (!agentInput.trim()) return;
+  const handleAgentSubmit = async (
+    e: React.FormEvent,
+    extraData: Record<string, unknown> = {}
+  ) => {
+    e.preventDefault();
+    if (!agentInput.trim()) return;
 
-  const message = agentInput;
-  setAgentInput("");
+    const message = agentInput;
+    setAgentInput("");
 
-  let hiddenContext: string | null = null;
-  if (captureResp) {
-    const sessionPayload = await fetchSessionForContext();
-    hiddenContext = sessionPayload ? buildHiddenScreenshotContext(sessionPayload) : null;
-  }
+    let hiddenContext: string | null = null;
+    if (captureResp) {
+      const sessionPayload = await fetchSessionForContext();
+      hiddenContext = sessionPayload
+        ? buildHiddenScreenshotContext(sessionPayload)
+        : null;
+    }
 
-  const parts: any[] = [];
-  if (hiddenContext) parts.push({ type: "text", text: hiddenContext }); // hidden by your renderer
-  parts.push({ type: "text", text: message });
+    const parts: any[] = [];
+    if (hiddenContext) parts.push({ type: "text", text: hiddenContext }); // hidden by your renderer
+    parts.push({ type: "text", text: message });
 
-  try {
-    await sendMessage(
-      { role: "user", parts } as any,
-      {
+    try {
+      await sendMessage({ role: "user", parts } as any, {
         body: {
           ...extraData,
           agent_name: agentName,
@@ -351,13 +356,12 @@ const handleAgentSubmit = async (
           captureSid: agentName,
           screenshot_context: Boolean(captureResp)
         }
-      }
-    );
-  } catch (err) {
-    console.error("sendMessage failed:", err);
-    alert("Send failed. Check Console + Network for the first error.");
-  }
-};
+      });
+    } catch (err) {
+      console.error("sendMessage failed:", err);
+      alert("Send failed. Check Console + Network for the first error.");
+    }
+  };
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -380,7 +384,7 @@ const handleAgentSubmit = async (
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-return (
+  return (
     <div className="h-[100vh] w-full p-4 flex justify-center items-center bg-neutral-100 dark:bg-neutral-950 overflow-hidden">
       <HasOpenAIKey />
       <div className="h-[calc(100vh-2rem)] w-full mx-auto max-w-lg flex flex-col shadow-2xl rounded-xl overflow-hidden relative border border-neutral-200/70 dark:border-neutral-800 bg-white/70 dark:bg-neutral-950/60 backdrop-blur">
@@ -404,7 +408,9 @@ return (
           </div>
 
           <div className="flex-1">
-            <h2 className="font-semibold text-base tracking-tight">Screenshot Helper</h2>
+            <h2 className="font-semibold text-base tracking-tight">
+              Screenshot Helper
+            </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Screenshot → goal → click-by-click steps
             </p>
@@ -451,12 +457,16 @@ return (
                   </div>
                   <h3 className="font-semibold text-lg">Welcome to AI Chat</h3>
                   <p className="text-neutral-600 dark:text-neutral-300 text-sm">
-                    Upload a screenshot + goal, then ask for exact click-by-click steps.
+                    Upload a screenshot + goal, then ask for exact
+                    click-by-click steps.
                   </p>
                   <ul className="text-sm text-left space-y-2">
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>"I want to edit my profile" (after uploading the page screenshot)</span>
+                      <span>
+                        "I want to edit my profile" (after uploading the page
+                        screenshot)
+                      </span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
@@ -464,7 +474,10 @@ return (
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-[#F48120]">•</span>
-                      <span>"What changed on this screen?" (upload the next screenshot)</span>
+                      <span>
+                        "What changed on this screen?" (upload the next
+                        screenshot)
+                      </span>
                     </li>
                   </ul>
                 </div>
@@ -505,13 +518,17 @@ return (
                             const raw = part.text ?? "";
 
                             // Hide the injected screenshot context entirely
-                            if (raw.startsWith("[[SCREENSHOT_CONTEXT]]")) return null;
+                            if (raw.startsWith("[[SCREENSHOT_CONTEXT]]"))
+                              return null;
 
                             // Hide agent memo JSON (strip it from display)
                             const memoMarker = "[[AGENT_MEMO]]";
                             const memoIdx = raw.indexOf(memoMarker);
 
-                            const visible = memoIdx === -1 ? raw : raw.slice(0, memoIdx).trimEnd();
+                            const visible =
+                              memoIdx === -1
+                                ? raw
+                                : raw.slice(0, memoIdx).trimEnd();
                             if (!visible) return null;
 
                             return (
@@ -523,15 +540,22 @@ return (
                                       ? "rounded-br-none bg-[#F48120]/10 dark:bg-[#F48120]/15 border-[#F48120]/20"
                                       : "rounded-bl-none bg-white/90 dark:bg-neutral-900/80 border-neutral-200/70 dark:border-neutral-800"
                                   } ${
-                                    visible.startsWith("scheduled message") ? "border-accent/50" : ""
+                                    visible.startsWith("scheduled message")
+                                      ? "border-accent/50"
+                                      : ""
                                   } relative`}
                                 >
                                   {visible.startsWith("scheduled message") && (
-                                    <span className="absolute -top-3 -left-2 text-base">🕒</span>
+                                    <span className="absolute -top-3 -left-2 text-base">
+                                      🕒
+                                    </span>
                                   )}
                                   <MemoizedMarkdown
                                     id={`${m.id}-${i}`}
-                                    content={visible.replace(/^scheduled message: /, "")}
+                                    content={visible.replace(
+                                      /^scheduled message: /,
+                                      ""
+                                    )}
                                   />
                                 </Card>
                                 <p
@@ -614,27 +638,27 @@ return (
               <label className="text-sm text-neutral-600 dark:text-neutral-400">
                 Screenshot (PNG/JPG)
               </label>
-                          <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const f = e.dataTransfer.files?.[0];
-                if (!f) return;
-                if (!["image/png", "image/jpeg"].includes(f.type)) {
-                  setCaptureErr("Only PNG/JPG allowed.");
-                  return;
-                }
-                setCaptureErr(null);
-                setImageFile(f);
-              }}
-              className="rounded-lg border border-dashed border-neutral-300/80 dark:border-neutral-700 p-3 text-sm text-neutral-600 dark:text-neutral-300 bg-neutral-50/70 dark:bg-neutral-900/30 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors"
-            >
-              Drag & drop a PNG/JPG here
-              {imageFile ? ` (selected: ${imageFile.name})` : ""}
-            </div>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files?.[0];
+                  if (!f) return;
+                  if (!["image/png", "image/jpeg"].includes(f.type)) {
+                    setCaptureErr("Only PNG/JPG allowed.");
+                    return;
+                  }
+                  setCaptureErr(null);
+                  setImageFile(f);
+                }}
+                className="rounded-lg border border-dashed border-neutral-300/80 dark:border-neutral-700 p-3 text-sm text-neutral-600 dark:text-neutral-300 bg-neutral-50/70 dark:bg-neutral-900/30 hover:bg-neutral-50 dark:hover:bg-neutral-900/40 transition-colors"
+              >
+                Drag & drop a PNG/JPG here
+                {imageFile ? ` (selected: ${imageFile.name})` : ""}
+              </div>
               <input
                 type="file"
                 name="image"
@@ -690,7 +714,11 @@ return (
                     type="button"
                     onClick={() => setShowCaptureRaw((v) => !v)}
                     disabled={!showDebug}
-                    title={showDebug ? "Toggle raw capture response" : "Enable Debug to view raw JSON"}
+                    title={
+                      showDebug
+                        ? "Toggle raw capture response"
+                        : "Enable Debug to view raw JSON"
+                    }
                     className={`rounded-lg border border-neutral-200/80 dark:border-neutral-800 px-2 py-1 text-xs bg-white/70 dark:bg-neutral-900/30 hover:bg-white dark:hover:bg-neutral-900/50 transition-colors ${
                       showDebug ? "" : "opacity-50 cursor-not-allowed"
                     }`}
@@ -743,7 +771,8 @@ return (
             });
             setTextareaHeight("auto"); // Reset height after submission
           }}
-  className="p-3 bg-white/70 border-t border-neutral-200/70 dark:border-neutral-800 dark:bg-neutral-950/60 backdrop-blur"        >
+          className="p-3 bg-white/70 border-t border-neutral-200/70 dark:border-neutral-800 dark:bg-neutral-950/60 backdrop-blur"
+        >
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
               <Textarea
@@ -856,14 +885,29 @@ function HasOpenAIKey() {
                   Workers AI Binding Not Configured
                 </h3>
                 <p className="text-neutral-600 dark:text-neutral-300 mb-1">
-                  Requests from this UI will not work until the Workers AI binding is available.
+                  Requests from this UI will not work until the Workers AI
+                  binding is available.
                 </p>
                 <p className="text-neutral-600 dark:text-neutral-300">
-                  Please configure the Workers AI binding in your <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">wrangler.jsonc</code> as:
+                  Please configure the Workers AI binding in your{" "}
+                  <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">
+                    wrangler.jsonc
+                  </code>{" "}
+                  as:
                   <br />
-                  <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">{"\"ai\": {\"binding\": \"AI\"}"}</code>
+                  <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">
+                    {'"ai": {"binding": "AI"}'}
+                  </code>
                   <br />
-                  and ensure your generated types include <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">AI: Ai</code> in <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">env.d.ts</code>.
+                  and ensure your generated types include{" "}
+                  <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">
+                    AI: Ai
+                  </code>{" "}
+                  in{" "}
+                  <code className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded text-red-600 dark:text-red-400 font-mono text-sm">
+                    env.d.ts
+                  </code>
+                  .
                   <br />
                   You can also use a different model provider by following these{" "}
                   <a

@@ -109,7 +109,9 @@ export class SessionMemoryDO extends DurableObject {
       // Keep DO storage bounded
       const MAX_MEMO_CHARS = 8000;
       const clamped =
-        merged.length > MAX_MEMO_CHARS ? merged.slice(0, MAX_MEMO_CHARS) + "…" : merged;
+        merged.length > MAX_MEMO_CHARS
+          ? merged.slice(0, MAX_MEMO_CHARS) + "…"
+          : merged;
 
       const next: SessionState = {
         ...s,

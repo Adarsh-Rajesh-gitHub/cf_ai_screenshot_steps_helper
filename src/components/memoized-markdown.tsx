@@ -1,5 +1,5 @@
-import { marked } from "marked";
 import type { Tokens } from "marked";
+import { marked } from "marked";
 import { memo, useMemo } from "react";
 import { Streamdown } from "streamdown";
 

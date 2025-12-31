@@ -3,59 +3,56 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "agents-starter",
-	"main": "src/server.ts",
-	"compatibility_date": "2025-08-03",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
-	"ai": {
-		"binding": "AI",
-		"remote": true
-	},
-	"vars": {
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agents-starter",
+  "main": "src/server.ts",
+  "compatibility_date": "2025-08-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
+  "vars": {
     "VISION_MODEL_ID": "@cf/meta/llama-3.2-11b-vision-instruct",
     "STRUCTURE_MODEL_ID": "@cf/meta/llama-3.1-8b-instruct"
-
   },
-	"assets": {
-		"directory": "dist"
-	},
-	"durable_objects": {
+  "assets": {
+    "directory": "dist"
+  },
+  "durable_objects": {
     "bindings": [
       { "name": "Chat", "class_name": "Chat" },
       { "name": "SESSION_MEMORY", "class_name": "SessionMemoryDO" }
     ]
-	},
+  },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Chat"] },
     { "tag": "v2", "new_classes": ["SessionMemoryDO"] }
   ],
-	"observability": {
-		"enabled": true
-	}
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": {  "mode": "smart" }
-	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
-	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+  "observability": {
+    "enabled": true
+  }
+  /**
+   * Smart Placement
+   * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+   */
+  // "placement": {  "mode": "smart" }
+  /**
+   * Bindings
+   * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
+   * databases, object storage, AI inference, real-time communication and more.
+   * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+   */
+  /**
+   * Environment Variables
+   * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+   * Note: Use secrets to store sensitive data.
+   * https://developers.cloudflare.com/workers/configuration/secrets/
+   */
+  // "vars": {  "MY_VARIABLE": "production_value" }
+  /**
+   * Service Bindings (communicate between multiple Workers)
+   * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+   */
+  // "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
 }
